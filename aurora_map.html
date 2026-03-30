@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aurora Windmill Map - East of Amsterdam</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0e1a; font-family: 'SF Mono', monospace; }
+  #map { width: 100%; height: 100vh; }
+  .header {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 1000;
+    background: rgba(10, 14, 26, 0.9); padding: 10px 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid #1e2d4a;
+  }
+  .header h1 { color: #7fdbca; font-size: 1rem; letter-spacing: 1px; }
+  .header .stats { color: #5a6a8a; font-size: 0.75rem; }
+  .legend {
+    position: absolute; bottom: 30px; left: 10px; z-index: 1000;
+    background: rgba(10, 14, 26, 0.92); border: 1px solid #1e2d4a;
+    border-radius: 8px; padding: 12px 16px; font-size: 0.72rem; color: #8892a8;
+  }
+  .legend-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+  .legend-dot {
+    width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+  }
+  .info-panel {
+    position: absolute; top: 50px; right: 10px; z-index: 1000;
+    background: rgba(10, 14, 26, 0.95); border: 1px solid #1e2d4a;
+    border-radius: 8px; padding: 14px 16px; width: 320px;
+    font-size: 0.78rem; color: #e0e6f0; display: none;
+  }
+  .info-panel h3 { color: #7fdbca; font-size: 0.9rem; margin-bottom: 6px; }
+  .info-panel .detail { color: #8892a8; line-height: 1.6; }
+  .info-panel .detail strong { color: #c0c8d8; }
+  .info-panel .close-btn {
+    position: absolute; top: 8px; right: 12px; color: #5a6a8a;
+    cursor: pointer; font-size: 1rem;
+  }
+  .info-panel .nav-btn {
+    display: inline-block; margin-top: 8px; padding: 4px 12px;
+    background: #0d3320; color: #4ade80; border: 1px solid #22c55e;
+    border-radius: 4px; text-decoration: none; font-size: 0.72rem;
+    cursor: pointer;
+  }
+  .filter-bar {
+    position: absolute; top: 50px; left: 10px; z-index: 1000;
+    background: rgba(10, 14, 26, 0.92); border: 1px solid #1e2d4a;
+    border-radius: 8px; padding: 10px 14px; font-size: 0.72rem; color: #8892a8;
+  }
+  .filter-bar label { display: block; margin: 3px 0; cursor: pointer; }
+  .filter-bar input { margin-right: 6px; }
+
+  /* Custom popup */
+  .leaflet-popup-content-wrapper {
+    background: #111827 !important; color: #e0e6f0 !important;
+    border: 1px solid #1e2d4a !important; border-radius: 8px !important;
+    font-family: 'SF Mono', monospace !important;
+  }
+  .leaflet-popup-tip { background: #111827 !important; }
+  .leaflet-popup-content { font-size: 0.75rem !important; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>AURORA WINDMILL MAP</h1>
+  <div class="stats">
+    <span id="mill-count">0</span> traditional windmills | 40min-1h east of Amsterdam | <span id="date"></span>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <strong style="color:#7fdbca">Drive time filter</strong>
+  <label><input type="checkbox" checked onchange="toggleRange('near')"> 40-50 min (lon 5.2-5.6)</label>
+  <label><input type="checkbox" checked onchange="toggleRange('mid')"> 50-60 min (lon 5.6-6.0)</label>
+  <label><input type="checkbox" checked onchange="toggleRange('far')"> 60-75 min (lon 6.0-6.5)</label>
+  <hr style="border-color:#1e2d4a;margin:6px 0">
+  <label><input type="checkbox" checked onchange="toggleOld()"> Pre-1850 only</label>
+</div>
+
+<div class="legend">
+  <strong style="color:#7fdbca">Legend</strong>
+  <div class="legend-row"><div class="legend-dot" style="background:#4ade80"></div> Best (far east, isolated)</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#facc15"></div> Good (mid-east)</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#3b82f6"></div> Closer (near-east)</div>
+  <div class="legend-row"><div class="legend-dot" style="background:#ef4444"></div> Amsterdam (start)</div>
+  <div class="legend-row" style="margin-top:6px;font-size:0.65rem;color:#5a6a8a">
+    Larger dot = older mill. Click for details.
+  </div>
+</div>
+
+<div class="info-panel" id="info-panel">
+  <span class="close-btn" onclick="document.getElementById('info-panel').style.display='none'">&times;</span>
+  <h3 id="info-name"></h3>
+  <div class="detail" id="info-detail"></div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Amsterdam center
+const AMS = [52.37, 4.90];
+
+// Dark map tiles
+const map = L.map('map', { zoomControl: false }).setView([52.4, 5.7], 9);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: 'CartoDB',
+  maxZoom: 18,
+}).addTo(map);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+// Date
+document.getElementById('date').textContent = new Date().toLocaleDateString('en-GB', {
+  weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+});
+
+// Amsterdam marker
+L.circleMarker(AMS, {
+  radius: 10, fillColor: '#ef4444', fillOpacity: 0.9, color: '#fff', weight: 2
+}).addTo(map).bindPopup('<strong>Amsterdam</strong><br>Start point');
+
+// Drive time rings (approximate)
+L.circle(AMS, { radius: 45000, color: '#3b82f6', fillOpacity: 0.03, weight: 1, dashArray: '5,5' }).addTo(map);
+L.circle(AMS, { radius: 65000, color: '#facc15', fillOpacity: 0.03, weight: 1, dashArray: '5,5' }).addTo(map);
+L.circle(AMS, { radius: 85000, color: '#4ade80', fillOpacity: 0.03, weight: 1, dashArray: '5,5' }).addTo(map);
+
+// Mill data (injected)
+let MILLS = [];
+const markers = [];
+let filterNear = true, filterMid = true, filterFar = true, filterOld = false;
+
+function millColor(lon) {
+  if (lon >= 6.0) return '#4ade80';
+  if (lon >= 5.6) return '#facc15';
+  return '#3b82f6';
+}
+
+function millRadius(year) {
+  try {
+    const yr = parseInt(year);
+    if (yr < 1750) return 10;
+    if (yr < 1830) return 8;
+    if (yr < 1880) return 6;
+    return 5;
+  } catch { return 5; }
+}
+
+function showInfo(m) {
+  const panel = document.getElementById('info-panel');
+  document.getElementById('info-name').textContent = m.name;
+  const navUrl = `https://www.google.com/maps/dir/Amsterdam/${m.lat},${m.lon}`;
+  document.getElementById('info-detail').innerHTML = `
+    <strong>Place:</strong> ${m.place}<br>
+    <strong>Year:</strong> ${m.year}<br>
+    <strong>Coords:</strong> ${m.lat.toFixed(4)}, ${m.lon.toFixed(4)}<br>
+    <strong>Ref:</strong> ${m.ref}<br>
+    <strong>Est. drive:</strong> ~${Math.round((m.lon - 4.9) * 45 + 20)} min from Amsterdam<br>
+    <a class="nav-btn" href="${navUrl}" target="_blank">Navigate from Amsterdam</a>
+  `;
+  panel.style.display = 'block';
+}
+
+function renderMarkers() {
+  // Clear existing
+  markers.forEach(m => map.removeLayer(m));
+  markers.length = 0;
+
+  let count = 0;
+  for (const m of MILLS) {
+    // Filter by range
+    if (m.lon < 5.6 && !filterNear) continue;
+    if (m.lon >= 5.6 && m.lon < 6.0 && !filterMid) continue;
+    if (m.lon >= 6.0 && !filterFar) continue;
+    // Filter by age
+    if (filterOld) {
+      try { if (parseInt(m.year) >= 1850) continue; } catch { continue; }
+    }
+
+    const color = millColor(m.lon);
+    const radius = millRadius(m.year);
+    const marker = L.circleMarker([m.lat, m.lon], {
+      radius, fillColor: color, fillOpacity: 0.8,
+      color: '#fff', weight: 1, opacity: 0.5
+    }).addTo(map);
+
+    marker.bindTooltip(m.name, {
+      className: 'mill-tooltip', direction: 'top', offset: [0, -8]
+    });
+
+    marker.on('click', () => {
+      showInfo(m);
+      // Draw route line
+      if (window._routeLine) map.removeLayer(window._routeLine);
+      window._routeLine = L.polyline([AMS, [m.lat, m.lon]], {
+        color: color, weight: 2, opacity: 0.6, dashArray: '8,6'
+      }).addTo(map);
+    });
+
+    markers.push(marker);
+    count++;
+  }
+  document.getElementById('mill-count').textContent = count;
+}
+
+window.toggleRange = function(range) {
+  if (range === 'near') filterNear = !filterNear;
+  if (range === 'mid') filterMid = !filterMid;
+  if (range === 'far') filterFar = !filterFar;
+  renderMarkers();
+};
+
+window.toggleOld = function() {
+  filterOld = !filterOld;
+  renderMarkers();
+};
+
+// Load mill data
+fetch('data/map_candidates.json')
+  .then(r => r.json())
+  .then(data => {
+    MILLS = data.filter(m => m.lat && m.lon);
+    renderMarkers();
+  })
+  .catch(e => {
+    console.error('Failed to load mill data:', e);
+    document.getElementById('mill-count').textContent = 'ERR';
+  });
+</script>
+</body>
+</html>

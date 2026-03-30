@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aurora Dashboard - Netherlands</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0e1a;
+    color: #e0e6f0;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 1.6rem;
+    color: #7fdbca;
+    margin-bottom: 4px;
+    letter-spacing: 2px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #5a6a8a;
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .card {
+    background: #111827;
+    border: 1px solid #1e2d4a;
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .card h2 {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #5a6a8a;
+    margin-bottom: 8px;
+  }
+  .card.full { grid-column: 1 / -1; }
+
+  /* Kp gauge */
+  .kp-display { display: flex; align-items: center; gap: 20px; }
+  .kp-value { font-size: 4rem; font-weight: 700; line-height: 1; }
+  .kp-meta { font-size: 0.85rem; color: #8892a8; }
+  .kp-bar-track {
+    flex: 1; height: 20px; background: #1a2235;
+    border-radius: 10px; overflow: hidden; position: relative;
+  }
+  .kp-bar-fill { height: 100%; border-radius: 10px; transition: width 1s ease; }
+  .kp-threshold { position: absolute; top: 0; bottom: 0; width: 2px; background: #ff6b6b; opacity: 0.7; }
+  .kp-threshold-label { position: absolute; top: -16px; font-size: 0.65rem; color: #ff6b6b; transform: translateX(-50%); }
+
+  /* Recommendation */
+  .rec-box { padding: 14px 20px; border-radius: 8px; font-size: 1.1rem; font-weight: 600; text-align: center; }
+  .rec-go { background: #0d3320; border: 1px solid #22c55e; color: #4ade80; }
+  .rec-marginal { background: #332d0d; border: 1px solid #eab308; color: #facc15; }
+  .rec-nogo { background: #330d0d; border: 1px solid #ef4444; color: #f87171; }
+  .rec-unknown { background: #1a1a2e; border: 1px solid #6366f1; color: #818cf8; }
+
+  /* Cloud comparison table */
+  .cloud-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+  .cloud-table th {
+    text-align: left; padding: 4px 6px; color: #5a6a8a;
+    border-bottom: 1px solid #1e2d4a; font-weight: 400; font-size: 0.65rem;
+    text-transform: uppercase; letter-spacing: 0.5px; position: sticky; top: 0; background: #111827;
+  }
+  .cloud-table td { padding: 3px 6px; }
+  .cloud-table tbody tr { border-bottom: 1px solid #0d1520; }
+  .cloud-table tbody tr.isolated-row { background: #0d1520; }
+  .cloud-table tr:hover { background: #1a2235; }
+  .cloud-cell {
+    display: inline-block; padding: 1px 5px; border-radius: 3px;
+    font-size: 0.68rem; min-width: 36px; text-align: center;
+  }
+  .cc-clear { background: #0d3320; color: #4ade80; }
+  .cc-partial { background: #332d0d; color: #facc15; }
+  .cc-cloudy { background: #330d0d; color: #f87171; }
+  .loc-name { color: #7fdbca; font-weight: 600; }
+  .loc-pick { color: #4ade80; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; margin-left: 6px; }
+
+  /* Location cards - compact table-like rows */
+  .loc-cards { display: flex; flex-direction: column; gap: 4px; }
+  .loc-card {
+    background: #1a2235; border-radius: 6px; padding: 8px 12px;
+    border-left: 3px solid #3b82f6;
+    display: grid; grid-template-columns: 1fr auto auto auto auto; align-items: center; gap: 10px;
+  }
+  .loc-card.selected { border-left-color: #4ade80; background: #0d1f2d; }
+  .loc-card-header { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .loc-card-name { font-size: 0.85rem; color: #7fdbca; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .loc-card-badge {
+    font-size: 0.6rem; padding: 1px 6px; border-radius: 8px;
+    text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; flex-shrink: 0;
+  }
+  .badge-top { background: #0d3320; color: #4ade80; }
+  .badge-isolated { background: #1a1a2e; color: #818cf8; border: 1px solid #4f46e5; }
+  .badge-alt { background: #1a2235; color: #8892a8; border: 1px solid #2d3a5a; }
+  .loc-card-detail { font-size: 0.75rem; color: #8892a8; white-space: nowrap; }
+  .loc-card-detail a { font-size: 0.72rem; }
+  .loc-window {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 4px; font-size: 0.72rem; font-weight: 600; white-space: nowrap;
+  }
+  .window-long { background: #0d3320; color: #4ade80; }
+  .window-medium { background: #332d0d; color: #facc15; }
+  .window-short { background: #330d0d; color: #f87171; }
+  .loc-expand { display: none; grid-column: 1 / -1; cursor: default; font-size: 0.75rem; color: #8892a8; line-height: 1.5; padding-top: 6px; border-top: 1px solid #1e2d4a; margin-top: 4px; }
+  .loc-expand strong { color: #c0c8d8; }
+  .loc-card.open .loc-expand { display: block; }
+
+  /* Forecast */
+  .forecast-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 0.8rem; }
+  .forecast-time { width: 140px; color: #8892a8; }
+  .forecast-bar-track { flex: 1; height: 12px; background: #1a2235; border-radius: 6px; overflow: hidden; }
+  .forecast-bar-fill { height: 100%; border-radius: 6px; }
+  .forecast-kp { width: 40px; text-align: right; }
+
+  /* OVATION */
+  .ovation-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.82rem; }
+  .ovation-name { width: 130px; color: #8892a8; }
+  .ovation-bar-track { flex: 1; height: 14px; background: #1a2235; border-radius: 7px; overflow: hidden; }
+  .ovation-bar-fill { height: 100%; border-radius: 7px; }
+  .ovation-pct { width: 50px; text-align: right; }
+
+  /* Camera settings */
+  .settings-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .setting { background: #1a2235; padding: 6px 10px; border-radius: 6px; }
+  .setting-label { font-size: 0.6rem; color: #5a6a8a; text-transform: uppercase; letter-spacing: 0.5px; }
+  .setting-value { font-size: 0.82rem; color: #e0e6f0; margin-top: 1px; }
+
+  /* Window highlight */
+  .window-highlight {
+    background: #0d3320; border: 1px solid #22c55e; border-radius: 8px;
+    padding: 12px 16px; margin-top: 12px; font-size: 0.9rem;
+    color: #4ade80; text-align: center;
+  }
+
+  /* Links */
+  a { color: #7fdbca; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .links { font-size: 0.8rem; line-height: 2; }
+
+  .refresh-bar {
+    text-align: center; margin-top: 16px;
+    font-size: 0.75rem; color: #3a4a6a;
+  }
+  .refresh-bar span { color: #5a6a8a; }
+
+  /* Map */
+  #mill-map { height: 500px; width: 100%; border-radius: 8px; }
+  .map-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .map-stats { color: #5a6a8a; font-size: 0.7rem; }
+  .map-filters { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .map-filters label { font-size: 0.7rem; color: #8892a8; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+  .map-filters input { margin: 0; }
+  .map-legend { display: flex; gap: 16px; margin-top: 8px; font-size: 0.65rem; color: #5a6a8a; }
+  .map-legend-item { display: flex; align-items: center; gap: 4px; }
+  .map-legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .leaflet-popup-content-wrapper {
+    background: #111827 !important; color: #e0e6f0 !important;
+    border: 1px solid #1e2d4a !important; border-radius: 8px !important;
+    font-family: 'SF Mono', monospace !important; font-size: 0.75rem !important;
+  }
+  .leaflet-popup-tip { background: #111827 !important; }
+
+  @media (max-width: 700px) {
+    .grid { grid-template-columns: 1fr; }
+    .kp-value { font-size: 3rem; }
+    .settings-grid { grid-template-columns: 1fr 1fr; }
+    #mill-map { height: 350px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>AURORA DASHBOARD</h1>
+<div class="subtitle">
+  <span id="clock"></span> &mdash; Auto-refresh every 2 min
+</div>
+
+<div class="grid">
+  <!-- Tonight's Picks (full width) -->
+  <div class="card full" style="background:#0d1f2d;border-color:#22c55e">
+    <h2 style="color:#4ade80">Tonight's Picks &mdash; G3 Storm Active</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+      <div style="background:#111827;border-radius:8px;padding:12px;border-left:3px solid #f97316">
+        <div style="color:#f97316;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">1. Close / Quick</div>
+        <div style="color:#7fdbca;font-weight:700;font-size:0.9rem">De Grebmolen</div>
+        <div style="color:#8892a8;font-size:0.72rem;line-height:1.5;margin-top:4px">
+          Warmenhuizen &middot; 35 min<br>
+          Poldermolen (1547) &middot; Rijksmonument<br>
+          Stand on Molenweg, shoot N across Grebpolder<br>
+          <span style="color:#facc15;font-weight:600">Clear until ~22:30</span>
+        </div>
+        <a href="https://www.google.com/maps/dir/Amsterdam/52.6987,4.7331" target="_blank" style="display:inline-block;margin-top:6px;padding:3px 10px;background:#1a2235;border:1px solid #f97316;border-radius:4px;color:#f97316;font-size:0.68rem;text-decoration:none">Navigate</a>
+      </div>
+      <div style="background:#111827;border-radius:8px;padding:12px;border-left:3px solid #facc15">
+        <div style="color:#facc15;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">2. Close / Backup</div>
+        <div style="color:#7fdbca;font-weight:700;font-size:0.9rem">Poldermolen E</div>
+        <div style="color:#8892a8;font-size:0.72rem;line-height:1.5;margin-top:4px">
+          Stompetoren &middot; 40 min<br>
+          Poldermolen (1635) &middot; Schermer canal<br>
+          South of Noordervaart, shoot N across polder<br>
+          <span style="color:#4ade80;font-weight:600">Clear until ~23:30</span>
+        </div>
+        <a href="https://www.google.com/maps/dir/Amsterdam/52.6168,4.8097" target="_blank" style="display:inline-block;margin-top:6px;padding:3px 10px;background:#1a2235;border:1px solid #facc15;border-radius:4px;color:#facc15;font-size:0.68rem;text-decoration:none">Navigate</a>
+      </div>
+      <div style="background:#111827;border-radius:8px;padding:12px;border-left:3px solid #4ade80">
+        <div style="color:#4ade80;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">3. Far East / Dream Shot</div>
+        <div style="color:#7fdbca;font-weight:700;font-size:0.9rem">De Wicher</div>
+        <div style="color:#8892a8;font-size:0.72rem;line-height:1.5;margin-top:4px">
+          Kalenberg &middot; 75 min &middot; National Park<br>
+          Spinnenkopmolen (1982) &middot; zero light pollution<br>
+          Hoogeweg south of mill, N across reed wetland<br>
+          <span style="color:#4ade80;font-weight:600">Clear until ~01:30+</span>
+        </div>
+        <a href="https://www.google.com/maps/dir/Amsterdam/52.7855,5.9781" target="_blank" style="display:inline-block;margin-top:6px;padding:3px 10px;background:#0d3320;border:1px solid #4ade80;border-radius:4px;color:#4ade80;font-size:0.68rem;text-decoration:none">Navigate</a>
+      </div>
+    </div>
+    <div style="font-size:0.7rem;color:#5a6a8a;text-align:center">
+      Strategy: Start at Warmenhuizen (20:00-22:00), if clouds approach drive 15 min to Schermerhorn (+1h), or commit to De Wicher for 4.5h of dark sky
+    </div>
+  </div>
+
+  <!-- Kp Index -->
+  <div class="card">
+    <h2>Current Kp Index</h2>
+    <div class="kp-display">
+      <div>
+        <div class="kp-value" id="kp-value">--</div>
+        <div class="kp-meta" id="kp-meta"></div>
+      </div>
+      <div style="flex:1">
+        <div class="kp-bar-track" style="position:relative">
+          <div class="kp-bar-fill" id="kp-bar" style="width:0%"></div>
+          <div class="kp-threshold" style="left:55.5%">
+            <div class="kp-threshold-label">Kp5 (NL)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recommendation -->
+  <div class="card">
+    <h2>Recommendation</h2>
+    <div class="rec-box rec-unknown" id="rec-box">Loading...</div>
+    <div class="window-highlight" id="window-box" style="display:none"></div>
+  </div>
+
+  <!-- DSCOVR L1 Solar Wind (full width) -->
+  <div class="card full">
+    <h2>DSCOVR L1 Satellite &mdash; Real-Time Solar Wind</h2>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+      <div style="background:#1a2235;padding:8px 12px;border-radius:6px">
+        <div style="font-size:0.6rem;color:#5a6a8a;text-transform:uppercase;letter-spacing:0.5px">Bz (IMF)</div>
+        <div style="font-size:1.4rem;font-weight:700" id="dscovr-bz">--</div>
+        <div style="font-size:0.6rem;color:#5a6a8a" id="dscovr-bz-note">nT (south = aurora)</div>
+      </div>
+      <div style="background:#1a2235;padding:8px 12px;border-radius:6px">
+        <div style="font-size:0.6rem;color:#5a6a8a;text-transform:uppercase;letter-spacing:0.5px">Bt (Total B)</div>
+        <div style="font-size:1.4rem;font-weight:700;color:#818cf8" id="dscovr-bt">--</div>
+        <div style="font-size:0.6rem;color:#5a6a8a">nT</div>
+      </div>
+      <div style="background:#1a2235;padding:8px 12px;border-radius:6px">
+        <div style="font-size:0.6rem;color:#5a6a8a;text-transform:uppercase;letter-spacing:0.5px">Solar Wind Speed</div>
+        <div style="font-size:1.4rem;font-weight:700;color:#7fdbca" id="dscovr-speed">--</div>
+        <div style="font-size:0.6rem;color:#5a6a8a">km/s (>500 = strong)</div>
+      </div>
+      <div style="background:#1a2235;padding:8px 12px;border-radius:6px">
+        <div style="font-size:0.6rem;color:#5a6a8a;text-transform:uppercase;letter-spacing:0.5px">Density</div>
+        <div style="font-size:1.4rem;font-weight:700;color:#e0e6f0" id="dscovr-density">--</div>
+        <div style="font-size:0.6rem;color:#5a6a8a">p/cm3</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:center">
+      <canvas id="bz-chart" height="80" style="flex:1;background:#1a2235;border-radius:6px"></canvas>
+      <canvas id="speed-chart" height="80" style="flex:1;background:#1a2235;border-radius:6px"></canvas>
+    </div>
+    <div style="font-size:0.6rem;color:#3a4a6a;margin-top:6px;display:flex;justify-content:space-between">
+      <span>Bz south (negative) + high speed = best aurora conditions</span>
+      <span id="dscovr-time"></span>
+    </div>
+  </div>
+
+  <!-- Combined: Cloud + Location Info (full width) -->
+  <div class="card full">
+    <h2>Windmill Locations &mdash; Cloud Cover Tonight</h2>
+    <table class="cloud-table" id="cloud-table">
+      <thead>
+        <tr>
+          <th>Location</th>
+          <th>Dist</th>
+          <th>Type</th>
+          <th>19h</th><th>20h</th><th>21h</th><th>22h</th><th>23h</th><th>00h</th><th>01h</th>
+          <th>Clear</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="cloud-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Windmill Map -->
+  <div class="card full">
+    <div class="map-header">
+      <h2>Windmill Map &mdash; <span id="map-count">0</span> mills from scraped database (23,933 total)</h2>
+    </div>
+    <div class="map-filters">
+      <label><input type="checkbox" checked onchange="toggleMapRange('nh')"> <span style="color:#f97316">Noord-Holland</span> (20-40 min)</label>
+      <label><input type="checkbox" checked onchange="toggleMapRange('mid')"> <span style="color:#facc15">Mid</span> (40-60 min)</label>
+      <label><input type="checkbox" checked onchange="toggleMapRange('east')"> <span style="color:#4ade80">East</span> (60-75 min)</label>
+      <label><input type="checkbox" onchange="toggleMapOld()"> Pre-1800 only</label>
+      <label><input type="checkbox" id="lp-toggle" checked onchange="toggleLightPollution()"> <span style="color:#a78bfa">Light Pollution</span></label>
+    </div>
+    <div id="mill-map"></div>
+    <div class="map-legend">
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:#f97316"></div> Noord-Holland</div>
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:#facc15"></div> 40-60 min</div>
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:#4ade80"></div> 60-75 min (best clouds)</div>
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:#ef4444"></div> Amsterdam</div>
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:linear-gradient(135deg,#000 0%,#1a1a6e 30%,#a78bfa 60%,#facc15 80%,#fff 100%)"></div> Light Pollution (Bortle)</div>
+      <span style="margin-left:auto">Larger dot = older mill. Click for route.</span>
+    </div>
+  </div>
+
+  <!-- Kp Forecast -->
+  <div class="card">
+    <h2>Kp Forecast (next 24h)</h2>
+    <div id="forecast-list"></div>
+  </div>
+
+  <!-- OVATION -->
+  <div class="card">
+    <h2>OVATION Aurora Probability</h2>
+    <div id="ovation-list"></div>
+    <div style="font-size:0.7rem;color:#3a4a6a;margin-top:8px">
+      Note: OVATION models the current moment. Daytime values will be 0%.
+    </div>
+  </div>
+
+  <!-- Camera Settings -->
+  <div class="card">
+    <h2>Camera Settings</h2>
+    <div class="settings-grid">
+      <div class="setting">
+        <div class="setting-label">Exposure</div>
+        <div class="setting-value">15-25 sec</div>
+      </div>
+      <div class="setting">
+        <div class="setting-label">ISO</div>
+        <div class="setting-value">1600-3200</div>
+      </div>
+      <div class="setting">
+        <div class="setting-label">Aperture</div>
+        <div class="setting-value">f/2.0 - f/2.8</div>
+      </div>
+      <div class="setting">
+        <div class="setting-label">White Balance</div>
+        <div class="setting-value">3200-4000K</div>
+      </div>
+      <div class="setting">
+        <div class="setting-label">Lens</div>
+        <div class="setting-value">14-24mm wide</div>
+      </div>
+      <div class="setting">
+        <div class="setting-label">Focus</div>
+        <div class="setting-value">Manual (stars)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Links -->
+  <div class="card">
+    <h2>Live Monitoring</h2>
+    <div class="links">
+      <a href="https://www.spaceweatherlive.com/en/auroral-activity.html" target="_blank">SpaceWeatherLive - Aurora Activity</a><br>
+      <a href="https://www.swpc.noaa.gov/products/aurora-30-minute-forecast" target="_blank">NOAA - 30min Aurora Forecast</a><br>
+      <a href="https://www.windy.com/52.786/5.978?clouds,52.786,5.978,8" target="_blank">Windy - Cloud Cover (Kalenberg)</a><br>
+      <a href="https://www.lightpollutionmap.info/#zoom=10&lat=52.786&lon=5.978" target="_blank">Light Pollution Map (De Wicher)</a><br>
+      <a href="https://www.albertdros.com/post/photographing-the-aurora-dancing-above-the-iconic-dutch-windmills" target="_blank">Albert Dros - Aurora Windmill Photography Guide</a>
+    </div>
+  </div>
+</div>
+
+<div class="refresh-bar">
+  Next refresh in <span id="countdown">120</span>s &mdash; Last updated: <span id="last-update">--</span>
+</div>
+
+<script>
+const NOAA_KP = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json';
+const NOAA_KP_FORECAST = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json';
+const NOAA_OVATION = 'https://services.swpc.noaa.gov/json/ovation_aurora_latest.json';
+
+// All candidate locations with windmill info
+const LOCATIONS = [
+  // --- NORTH (Schermer polder, clear ~21:00) ---
+  {
+    name: 'Poldermolen E, Stompetoren',
+    lat: 52.617, lon: 4.810,
+    distance: '40 km N',
+    address: 'Noordervaart 105, 1841 GA Stompetoren',
+    compose: 'Isolated polder mill on canal dike, flat open fields, water reflections',
+    horizon: 'Flat open polder to the north -- unobstructed',
+    type: 'Poldermolen (1635)',
+    isolated: true,
+    maps: 'https://maps.google.com/?q=52.6168,4.8097',
+  },
+  {
+    name: 'Poldermolen O, Schermerhorn',
+    lat: 52.601, lon: 4.857,
+    distance: '45 km N',
+    address: 'Noordervaart 20, 1636 VL Schermerhorn',
+    compose: 'Mill silhouette along Noordervaart canal with flat polder north',
+    horizon: 'Flat open polder to the north -- clear',
+    type: 'Poldermolen (1635)',
+    isolated: true,
+    maps: 'https://maps.google.com/?q=52.6008,4.8569',
+  },
+  // --- EAST (~1h drive, clear until ~01:00+) ---
+  {
+    name: 'De Windhond, Soest',
+    lat: 52.402, lon: 5.388,
+    distance: '45 km E',
+    address: 'Soesterengweg 31, 3762 EJ Soest',
+    compose: 'Stellingmolen on the Eng, open heathland to the north',
+    horizon: 'Open Eng landscape -- reasonably clear north',
+    type: 'Stellingkorenmolen',
+    isolated: false,
+    maps: 'https://maps.google.com/?q=52.402,5.388',
+  },
+  {
+    name: 'Spakenburg Windmill',
+    lat: 52.253, lon: 5.367,
+    distance: '50 km E',
+    address: 'Westdijk 16, 3752 AM Bunschoten-Spakenburg',
+    compose: 'Mill on harbour edge with Eemmeer water to the north',
+    horizon: 'Open water (Eemmeer) to the north -- good',
+    type: 'Korenmolen',
+    isolated: false,
+    maps: 'https://maps.google.com/?q=52.253,5.367',
+  },
+  {
+    name: "Bokkers Molle, Olst",
+    lat: 52.342, lon: 6.107,
+    distance: '90 km E',
+    address: 'Rijksstraatweg 45, 8121 AB Olst',
+    compose: 'Historic mill on IJssel river plain, open farmland north',
+    horizon: 'IJssel floodplain to the north -- open',
+    type: 'Korenmolen (1729)',
+    isolated: false,
+    maps: 'https://maps.google.com/?q=52.342,6.107',
+  },
+  {
+    name: "D'Olde Zwarver, Kampen",
+    lat: 52.545, lon: 5.927,
+    distance: '95 km E',
+    address: 'IJsseldijk 92, 8261 LM Kampen',
+    compose: 'Tall stellingmolen on IJssel dike, river and polder to the north',
+    horizon: 'IJssel river + Mastenbroek polder to the north -- open',
+    type: 'Stellingmolen (1842)',
+    isolated: false,
+    maps: 'https://maps.google.com/?q=52.545,5.927',
+  },
+  {
+    name: 'De Zwaluw, Hasselt',
+    lat: 52.587, lon: 6.097,
+    distance: '100 km E',
+    address: 'Hasselt, Overijssel',
+    compose: 'Smock mill near town edge, farmland extends north',
+    horizon: 'Agricultural land to the north -- partial',
+    type: 'Smock mill (1784)',
+    isolated: false,
+    maps: 'https://maps.google.com/?q=52.587,6.097',
+  },
+  {
+    name: 'Monnikenmolen, Sint Jansklooster',
+    lat: 52.681, lon: 5.953,
+    distance: '100 km E',
+    address: 'Molenstraat 1, 8326 CV Sint Jansklooster',
+    compose: 'Elevated mill on clay ridge, wetland/water landscape north',
+    horizon: 'Open water landscape (Weerribben-Wieden) north -- excellent',
+    type: 'Stellingmolen (1857)',
+    isolated: true,
+    maps: 'https://maps.google.com/?q=52.681,5.953',
+  },
+  {
+    name: 'De Leijen, Staphorst',
+    lat: 52.659, lon: 6.244,
+    distance: '110 km E',
+    address: 'Gemeenteweg 364, 7951 PG Staphorst',
+    compose: 'Last surviving mill in Staphorst, deep rural agricultural setting',
+    horizon: 'Flat agricultural land to the north -- very open, dark',
+    type: 'Korenmolen (1854)',
+    isolated: true,
+    maps: 'https://maps.google.com/?q=52.659,6.244',
+  },
+  {
+    name: 'Gieterse Koornmeule, Giethoorn',
+    lat: 52.710, lon: 5.853,
+    distance: '115 km E',
+    address: 'Kerkweg, Giethoorn',
+    compose: 'Mill in canal village, water reflections, thatched roofs foreground',
+    horizon: 'Wetland canals and open landscape north -- good',
+    type: 'Korenmolen',
+    isolated: false,
+    maps: 'https://maps.google.com/?q=52.710,5.853',
+  },
+  {
+    name: 'De Wicher, Kalenberg',
+    lat: 52.786, lon: 5.978,
+    distance: '120 km E',
+    address: 'Hoogeweg 3, 8377 EL Kalenberg',
+    compose: 'Traditional mill in vast dark wetland, water + reed reflections',
+    horizon: 'Open wetland (Weerribben-Wieden NP) north -- excellent, darkest skies',
+    type: 'Spinnenkopmolen (1982)',
+    isolated: true,
+    maps: 'https://maps.google.com/?q=52.7855,5.978',
+  },
+];
+
+// Build cloud URL for all locations
+function buildCloudURL() {
+  const lats = LOCATIONS.map(l => l.lat).join(',');
+  const lons = LOCATIONS.map(l => l.lon).join(',');
+  return `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&hourly=cloud_cover&timezone=Europe/Amsterdam&forecast_days=2`;
+}
+
+function kpColor(kp) {
+  if (kp >= 7) return '#ef4444';
+  if (kp >= 6) return '#f97316';
+  if (kp >= 5) return '#eab308';
+  if (kp >= 4) return '#a3e635';
+  if (kp >= 3) return '#22c55e';
+  return '#3b82f6';
+}
+
+function ccClass(pct) {
+  if (pct <= 20) return 'cc-clear';
+  if (pct <= 50) return 'cc-partial';
+  return 'cc-cloudy';
+}
+
+function ccLabel(pct) { return pct + '%'; }
+
+function findClearUntil(hourlyCovers, times) {
+  // Find the last consecutive clear hour (<=30%) starting from 18:00
+  let lastClear = null;
+  for (let i = 0; i < times.length; i++) {
+    const t = times[i];
+    const hour = parseInt(t.split('T')[1].split(':')[0]);
+    const dateStr = t.split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    if (dateStr === today && hour >= 18 && hour <= 23) {
+      if (hourlyCovers[i] <= 30) {
+        lastClear = hour + ':59';
+      } else {
+        break;
+      }
+    }
+    if (dateStr === tomorrow && hour >= 0 && hour <= 6) {
+      if (hourlyCovers[i] <= 30) {
+        lastClear = (hour === 0 ? '00' : hour) + ':59+';
+      } else {
+        break;
+      }
+    }
+  }
+  return lastClear || '< 18:00';
+}
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleString('en-GB', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    timeZone: 'Europe/Amsterdam'
+  }) + ' CET';
+}
+
+async function fetchJSON(url) {
+  try {
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } catch (e) {
+    console.error('Fetch failed:', url, e);
+    return null;
+  }
+}
+
+async function updateKp() {
+  const data = await fetchJSON(NOAA_KP);
+  if (!data || data.length < 2) {
+    document.getElementById('kp-value').textContent = '??';
+    return null;
+  }
+  const last = data[data.length - 1];
+  const kp = parseFloat(last[1]);
+  const ts = last[0];
+  document.getElementById('kp-value').textContent = kp.toFixed(1);
+  document.getElementById('kp-value').style.color = kpColor(kp);
+  document.getElementById('kp-meta').textContent = `as of ${ts} UTC`;
+  const pct = Math.min((kp / 9) * 100, 100);
+  const bar = document.getElementById('kp-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = `linear-gradient(90deg, #3b82f6, ${kpColor(kp)})`;
+  return kp;
+}
+
+async function updateForecast() {
+  const data = await fetchJSON(NOAA_KP_FORECAST);
+  const container = document.getElementById('forecast-list');
+  if (!data || data.length < 2) {
+    container.innerHTML = '<div style="color:#5a6a8a">Unavailable</div>';
+    return;
+  }
+  const now = new Date();
+  let html = '';
+  let count = 0;
+  for (let i = 1; i < data.length && count < 10; i++) {
+    const row = data[i];
+    const ts = new Date(row[0] + 'Z');
+    if (ts < now) continue;
+    const kp = parseFloat(row[1]);
+    if (isNaN(kp)) continue;
+    const pct = Math.min((kp / 9) * 100, 100);
+    const timeStr = ts.toLocaleString('en-GB', {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+      timeZone: 'Europe/Amsterdam'
+    });
+    const marker = kp >= 5 ? ' font-weight:700;' : '';
+    html += `<div class="forecast-row">
+      <div class="forecast-time">${timeStr}</div>
+      <div class="forecast-bar-track">
+        <div class="forecast-bar-fill" style="width:${pct}%;background:${kpColor(kp)}"></div>
+      </div>
+      <div class="forecast-kp" style="color:${kpColor(kp)};${marker}">${kp.toFixed(1)}</div>
+    </div>`;
+    count++;
+  }
+  container.innerHTML = html || '<div style="color:#5a6a8a">No future data</div>';
+}
+
+async function updateClouds() {
+  const data = await fetchJSON(buildCloudURL());
+  const tbody = document.getElementById('cloud-tbody');
+  if (!data) {
+    tbody.innerHTML = '<tr><td colspan="12" style="color:#5a6a8a">Unavailable</td></tr>';
+    return null;
+  }
+
+  const isMulti = Array.isArray(data);
+  const datasets = isMulti ? data : [data];
+
+  const targetHours = [19, 20, 21, 22, 23, 0, 1];
+  let tableHTML = '';
+  let bestCloud = null;
+
+  for (let li = 0; li < LOCATIONS.length; li++) {
+    const loc = LOCATIONS[li];
+    const d = datasets[li] || datasets[0];
+    if (!d || !d.hourly) continue;
+
+    const times = d.hourly.time;
+    const covers = d.hourly.cloud_cover;
+    const clearUntil = findClearUntil(covers, times);
+
+    const isTop = loc.name.includes('De Wicher');
+    const isoTag = loc.isolated ? '<span style="color:#818cf8;font-size:0.55rem;margin-left:4px">DARK</span>' : '';
+    const topTag = isTop ? '<span style="color:#4ade80;font-size:0.55rem;margin-left:4px">TOP</span>' : '';
+    const rowBg = isTop ? 'background:#0d1f2d;' : loc.isolated ? 'background:#0d1520;' : '';
+
+    tableHTML += `<tr style="${rowBg}cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'table-row':'none'">
+      <td class="loc-name" style="font-size:0.7rem">${loc.name}${isoTag}${topTag}</td>
+      <td style="color:#8892a8;font-size:0.63rem">${loc.distance}</td>
+      <td style="color:#5a6a8a;font-size:0.6rem">${loc.type || ''}</td>`;
+
+    for (const th of targetHours) {
+      let val = '--';
+      for (let i = 0; i < times.length; i++) {
+        const h = parseInt(times[i].split('T')[1].split(':')[0]);
+        const dateStr = times[i].split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
+        const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+        if (h === th && ((th >= 18 && dateStr === today) || (th < 18 && dateStr === tomorrow))) {
+          val = covers[i];
+          break;
+        }
+      }
+      if (val !== '--') {
+        tableHTML += `<td><span class="cloud-cell ${ccClass(val)}">${val}%</span></td>`;
+      } else {
+        tableHTML += `<td><span class="cloud-cell" style="color:#5a6a8a">--</span></td>`;
+      }
+    }
+
+    const windowClass = clearUntil.includes('+') || parseInt(clearUntil) >= 23 ? 'color:#4ade80' :
+                        parseInt(clearUntil) >= 22 ? 'color:#facc15' : 'color:#f87171';
+    tableHTML += `<td style="font-weight:600;font-size:0.72rem;${windowClass}">${clearUntil}</td>`;
+    tableHTML += `<td><a href="${loc.maps}" target="_blank" style="font-size:0.65rem;color:#7fdbca" onclick="event.stopPropagation()">Maps</a></td></tr>`;
+
+    // Expandable detail row (hidden by default)
+    tableHTML += `<tr style="display:none;${rowBg}">
+      <td colspan="12" style="padding:6px 12px;font-size:0.7rem;color:#8892a8;border-bottom:1px solid #1e2d4a">
+        <strong style="color:#c0c8d8">Address:</strong> ${loc.address}
+        &nbsp;&middot;&nbsp;<strong style="color:#c0c8d8">Composition:</strong> ${loc.compose}
+        &nbsp;&middot;&nbsp;<strong style="color:#c0c8d8">North:</strong> ${loc.horizon}
+      </td>
+    </tr>`;
+  }
+
+  tbody.innerHTML = tableHTML;
+
+  // Return evening cloud for recommendation (use the top pick's value)
+  const topD = datasets[datasets.length - 1] || datasets[0];
+  if (topD && topD.hourly) {
+    for (let i = 0; i < topD.hourly.time.length; i++) {
+      const h = parseInt(topD.hourly.time[i].split('T')[1].split(':')[0]);
+      if (h === 21) {
+        bestCloud = topD.hourly.cloud_cover[i];
+        break;
+      }
+    }
+  }
+  return bestCloud;
+}
+
+async function updateOvation() {
+  const data = await fetchJSON(NOAA_OVATION);
+  const container = document.getElementById('ovation-list');
+  if (!data || !data.coordinates) {
+    container.innerHTML = '<div style="color:#5a6a8a">Unavailable</div>';
+    return null;
+  }
+  let html = '';
+  let topProb = 0;
+  for (const loc of LOCATIONS) {
+    let bestProb = 0, bestDist = Infinity;
+    for (const entry of data.coordinates) {
+      let lon = entry[0], lat = entry[1], prob = entry[2];
+      if (lon > 180) lon -= 360;
+      const dist = (lat - loc.lat) ** 2 + (lon - loc.lon) ** 2;
+      if (dist < bestDist) { bestDist = dist; bestProb = prob; }
+    }
+    const pct = Math.min(bestProb, 100);
+    const color = bestProb >= 20 ? '#22c55e' : bestProb >= 5 ? '#eab308' : '#3b82f6';
+    html += `<div class="ovation-row">
+      <div class="ovation-name">${loc.name.split(',')[0]}</div>
+      <div class="ovation-bar-track">
+        <div class="ovation-bar-fill" style="width:${pct}%;background:${color}"></div>
+      </div>
+      <div class="ovation-pct" style="color:${color}">${bestProb.toFixed(1)}%</div>
+    </div>`;
+    topProb = Math.max(topProb, bestProb);
+  }
+  container.innerHTML = html;
+  return topProb;
+}
+
+function updateRecommendation(kp, cloud, auroraProb) {
+  const box = document.getElementById('rec-box');
+  const windowBox = document.getElementById('window-box');
+
+  if (kp === null) {
+    box.className = 'rec-box rec-unknown';
+    box.textContent = 'Unable to determine -- check manually';
+    return;
+  }
+
+  let score = 0;
+  if (kp >= 7) score += 3;
+  else if (kp >= 6) score += 2;
+  else if (kp >= 5) score += 1;
+  if (auroraProb !== null && auroraProb >= 20) score += 2;
+  else if (auroraProb !== null && auroraProb >= 10) score += 1;
+  if (cloud !== null && cloud <= 20) score += 1;
+  else if (cloud !== null && cloud >= 70) score -= 2;
+
+  if (score >= 4) {
+    box.className = 'rec-box rec-go';
+    box.textContent = 'GO -- Excellent conditions, get moving!';
+  } else if (score >= 2) {
+    box.className = 'rec-box rec-go';
+    box.textContent = 'GO -- Good conditions, worth the drive';
+  } else if (score >= 1) {
+    box.className = 'rec-box rec-marginal';
+    box.textContent = 'MARGINAL -- Possible but not guaranteed';
+  } else {
+    box.className = 'rec-box rec-nogo';
+    box.textContent = 'NO-GO -- Conditions unfavorable';
+  }
+
+  windowBox.style.display = 'block';
+  windowBox.innerHTML = 'Astronomical darkness from ~20:30 | Drive further east for longer clear skies';
+}
+
+async function refreshAll() {
+  updateClock();
+  const [kp, cloud, auroraProb] = await Promise.all([
+    updateKp(), updateClouds(), updateOvation(),
+  ]);
+  updateForecast();
+  updateRecommendation(kp, cloud, auroraProb);
+  document.getElementById('last-update').textContent =
+    new Date().toLocaleTimeString('en-GB', { timeZone: 'Europe/Amsterdam' });
+}
+
+let countdown = 120;
+setInterval(() => {
+  countdown--;
+  document.getElementById('countdown').textContent = countdown;
+  updateClock();
+  if (countdown <= 0) { countdown = 120; refreshAll(); updateDSCOVR(); }
+}, 1000);
+
+refreshAll();
+
+// --- DSCOVR L1 Solar Wind ---
+const DSCOVR_MAG = 'https://services.swpc.noaa.gov/products/solar-wind/mag-2-hour.json';
+const DSCOVR_PLASMA = 'https://services.swpc.noaa.gov/products/solar-wind/plasma-2-hour.json';
+
+function bzColor(bz) {
+  if (bz <= -10) return '#ef4444';
+  if (bz <= -5) return '#f97316';
+  if (bz < 0) return '#facc15';
+  return '#3b82f6';
+}
+
+function drawMiniChart(canvasId, data, label, colorFn, refLine) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !data.length) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = canvas.offsetWidth;
+  const H = canvas.height = canvas.offsetHeight;
+  ctx.clearRect(0, 0, W, H);
+
+  const vals = data.map(d => d.v).filter(v => v !== null);
+  if (!vals.length) return;
+  const min = Math.min(...vals, refLine || Infinity);
+  const max = Math.max(...vals, 0);
+  const range = max - min || 1;
+  const pad = 4;
+
+  // Reference line (0 for Bz, 500 for speed)
+  if (refLine !== undefined) {
+    const ry = H - pad - ((refLine - min) / range) * (H - pad * 2);
+    ctx.strokeStyle = '#3a4a6a';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(0, ry);
+    ctx.lineTo(W, ry);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#3a4a6a';
+    ctx.font = '9px monospace';
+    ctx.fillText(refLine.toString(), 2, ry - 3);
+  }
+
+  // Data line
+  ctx.beginPath();
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i].v === null) continue;
+    const x = (i / (data.length - 1)) * (W - pad * 2) + pad;
+    const y = H - pad - ((data[i].v - min) / range) * (H - pad * 2);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = colorFn ? colorFn(vals[vals.length - 1]) : '#7fdbca';
+  ctx.stroke();
+
+  // Label
+  ctx.fillStyle = '#5a6a8a';
+  ctx.font = '9px monospace';
+  ctx.fillText(label, W - ctx.measureText(label).width - 4, 12);
+}
+
+async function updateDSCOVR() {
+  const [magData, plasmaData] = await Promise.all([
+    fetchJSON(DSCOVR_MAG),
+    fetchJSON(DSCOVR_PLASMA),
+  ]);
+
+  if (magData && magData.length > 2) {
+    const last = magData[magData.length - 1];
+    const bz = parseFloat(last[3]);
+    const bt = parseFloat(last[6]);
+    const ts = last[0];
+
+    const bzEl = document.getElementById('dscovr-bz');
+    bzEl.textContent = (isNaN(bz) ? '--' : bz.toFixed(1)) + ' nT';
+    bzEl.style.color = isNaN(bz) ? '#5a6a8a' : bzColor(bz);
+
+    document.getElementById('dscovr-bt').textContent = isNaN(bt) ? '--' : bt.toFixed(1) + ' nT';
+    document.getElementById('dscovr-time').textContent = 'Last: ' + ts + ' UTC';
+
+    if (bz < -5) {
+      document.getElementById('dscovr-bz-note').textContent = 'SOUTHWARD - aurora favorable!';
+      document.getElementById('dscovr-bz-note').style.color = '#4ade80';
+    } else if (bz < 0) {
+      document.getElementById('dscovr-bz-note').textContent = 'Slightly south - possible aurora';
+      document.getElementById('dscovr-bz-note').style.color = '#facc15';
+    } else {
+      document.getElementById('dscovr-bz-note').textContent = 'Northward - aurora unlikely';
+      document.getElementById('dscovr-bz-note').style.color = '#f87171';
+    }
+
+    // Bz chart
+    const bzSeries = magData.slice(1).map(r => ({ v: parseFloat(r[3]) || null }));
+    drawMiniChart('bz-chart', bzSeries, 'Bz (2h)', bzColor, 0);
+  }
+
+  if (plasmaData && plasmaData.length > 2) {
+    const last = plasmaData[plasmaData.length - 1];
+    const speed = parseFloat(last[2]);
+    const density = parseFloat(last[1]);
+
+    const speedEl = document.getElementById('dscovr-speed');
+    speedEl.textContent = isNaN(speed) ? '--' : Math.round(speed) + ' km/s';
+    if (speed > 600) speedEl.style.color = '#ef4444';
+    else if (speed > 500) speedEl.style.color = '#f97316';
+    else speedEl.style.color = '#7fdbca';
+
+    document.getElementById('dscovr-density').textContent = isNaN(density) ? '--' : density.toFixed(1) + ' p/cm3';
+
+    // Speed chart
+    const speedSeries = plasmaData.slice(1).map(r => ({ v: parseFloat(r[2]) || null }));
+    drawMiniChart('speed-chart', speedSeries, 'Speed (2h)', () => '#7fdbca', 500);
+  }
+}
+
+updateDSCOVR();
+</script>
+
+<!-- Leaflet + Map -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function() {
+  const AMS = [52.37, 4.90];
+  const millMap = L.map('mill-map', { zoomControl: true }).setView([52.55, 5.5], 9);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: 'CartoDB', maxZoom: 18,
+  }).addTo(millMap);
+
+  // Amsterdam marker
+  L.circleMarker(AMS, {
+    radius: 8, fillColor: '#ef4444', fillOpacity: 0.9, color: '#fff', weight: 2
+  }).addTo(millMap).bindPopup('<strong>Amsterdam</strong>');
+
+  // Drive rings
+  L.circle(AMS, { radius: 40000, color: '#f97316', fillOpacity: 0.02, weight: 1, dashArray: '4,4' }).addTo(millMap);
+  L.circle(AMS, { radius: 60000, color: '#facc15', fillOpacity: 0.02, weight: 1, dashArray: '4,4' }).addTo(millMap);
+  L.circle(AMS, { radius: 85000, color: '#4ade80', fillOpacity: 0.02, weight: 1, dashArray: '4,4' }).addTo(millMap);
+
+  // Light pollution overlay (Falchi/Lorenz World Atlas 2024)
+  const lightPollutionLayer = L.tileLayer(
+    'https://djlorenz.github.io/astronomy/image_tiles/tiles2024/tile_{z}_{x}_{y}.png',
+    {
+      attribution: 'Light pollution &copy; <a href="https://djlorenz.github.io/astronomy/lp/">D. Lorenz</a>, Falchi et al.',
+      minZoom: 2,
+      maxNativeZoom: 8,
+      maxZoom: 19,
+      tileSize: 1024,
+      zoomOffset: -2,
+      opacity: 0.45,
+      errorTileUrl: 'https://djlorenz.github.io/astronomy/image_tiles/tiles2024/black.png'
+    }
+  ).addTo(millMap);
+
+  window.toggleLightPollution = function() {
+    if (millMap.hasLayer(lightPollutionLayer)) {
+      millMap.removeLayer(lightPollutionLayer);
+    } else {
+      lightPollutionLayer.addTo(millMap);
+      lightPollutionLayer.bringToBack();
+    }
+  };
+
+  let ALL_MILLS = [];
+  let mapMarkers = [];
+  let showNH = true, showMid = true, showEast = true, showOldOnly = false;
+  let routeLine = null;
+
+  function mColor(lon) {
+    if (lon >= 6.0) return '#4ade80';
+    if (lon >= 5.2) return '#facc15';
+    return '#f97316';
+  }
+  function mRadius(year) {
+    try {
+      const yr = parseInt(year);
+      if (yr < 1700) return 9;
+      if (yr < 1800) return 7;
+      if (yr < 1860) return 6;
+      return 4;
+    } catch { return 4; }
+  }
+
+  function renderMap() {
+    mapMarkers.forEach(m => millMap.removeLayer(m));
+    mapMarkers = [];
+    let count = 0;
+    for (const m of ALL_MILLS) {
+      if (!m.lat || !m.lon) continue;
+      if (m.lon < 5.2 && !showNH) continue;
+      if (m.lon >= 5.2 && m.lon < 6.0 && !showMid) continue;
+      if (m.lon >= 6.0 && !showEast) continue;
+      if (showOldOnly) {
+        try { if (parseInt(m.year) >= 1800) continue; } catch { continue; }
+      }
+      const color = mColor(m.lon);
+      const radius = mRadius(m.year);
+      const marker = L.circleMarker([m.lat, m.lon], {
+        radius, fillColor: color, fillOpacity: 0.8,
+        color: '#fff', weight: 0.5, opacity: 0.4
+      }).addTo(millMap);
+      const navUrl = `https://www.google.com/maps/dir/Amsterdam/${m.lat},${m.lon}`;
+      marker.bindPopup(`<strong style="color:#7fdbca">${m.name}</strong><br>
+        ${m.place} (${m.year})<br>
+        ${m.lat.toFixed(4)}, ${m.lon.toFixed(4)}<br>
+        <a href="${navUrl}" target="_blank" style="color:#4ade80">Navigate from Amsterdam</a>`);
+      marker.on('click', () => {
+        if (routeLine) millMap.removeLayer(routeLine);
+        routeLine = L.polyline([AMS, [m.lat, m.lon]], {
+          color, weight: 2, opacity: 0.5, dashArray: '6,4'
+        }).addTo(millMap);
+      });
+      mapMarkers.push(marker);
+      count++;
+    }
+    document.getElementById('map-count').textContent = count;
+  }
+
+  window.toggleMapRange = function(r) {
+    if (r === 'nh') showNH = !showNH;
+    if (r === 'mid') showMid = !showMid;
+    if (r === 'east') showEast = !showEast;
+    renderMap();
+  };
+  window.toggleMapOld = function() {
+    showOldOnly = !showOldOnly;
+    renderMap();
+  };
+
+  // Tonight's 3 picks - highlighted markers + route lines
+  const PICKS = [
+    { name: 'De Grebmolen', place: 'Warmenhuizen', lat: 52.6987, lon: 4.7331, color: '#f97316', clear: '~22:30', label: '1' },
+    { name: 'Poldermolen E', place: 'Stompetoren', lat: 52.6168, lon: 4.8097, color: '#facc15', clear: '~23:30', label: '2' },
+    { name: 'De Wicher', place: 'Kalenberg', lat: 52.7855, lon: 5.9781, color: '#4ade80', clear: '~01:30+', label: '3' },
+  ];
+
+  function addPicks() {
+    for (const p of PICKS) {
+      // Large pulsing marker
+      L.circleMarker([p.lat, p.lon], {
+        radius: 14, fillColor: p.color, fillOpacity: 0.3,
+        color: p.color, weight: 2, opacity: 0.8
+      }).addTo(millMap);
+      L.circleMarker([p.lat, p.lon], {
+        radius: 8, fillColor: p.color, fillOpacity: 0.9,
+        color: '#fff', weight: 2, opacity: 1
+      }).addTo(millMap).bindPopup(
+        `<strong style="color:${p.color}">${p.label}. ${p.name}</strong><br>
+        ${p.place} &middot; Clear until ${p.clear}<br>
+        <a href="https://www.google.com/maps/dir/Amsterdam/${p.lat},${p.lon}" target="_blank" style="color:#4ade80">Navigate</a>`
+      );
+      // Label
+      L.marker([p.lat, p.lon], {
+        icon: L.divIcon({
+          className: '',
+          html: `<div style="color:${p.color};font-size:11px;font-weight:700;font-family:monospace;text-shadow:0 0 4px #000,0 0 8px #000;white-space:nowrap;margin-left:16px;margin-top:-8px">${p.label}. ${p.name}</div>`,
+          iconSize: [0, 0]
+        })
+      }).addTo(millMap);
+      // Route line from Amsterdam
+      L.polyline([AMS, [p.lat, p.lon]], {
+        color: p.color, weight: 2, opacity: 0.4, dashArray: '8,6'
+      }).addTo(millMap);
+    }
+  }
+
+  fetch('data/map_candidates.json')
+    .then(r => r.json())
+    .then(data => { ALL_MILLS = data; renderMap(); addPicks(); lightPollutionLayer.bringToBack(); })
+    .catch(e => console.error('Map data load failed:', e));
+})();
+</script>
+</body>
+</html>

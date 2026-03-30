@@ -1,0 +1,15 @@
+# Large data dumps (regenerate with scrape_molens.py)
+data/all_molens.json
+data/all_molens.csv
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
