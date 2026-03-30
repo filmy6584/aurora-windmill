@@ -1,5 +1,11 @@
 # Aurora Windmill
 
+<p align="center">
+  <img src="https://images.unsplash.com/photo-1769035271117-87ffa5eed91a?auto=format&fit=crop&w=1200&q=80" alt="Northern Lights over a Dutch windmill in Warmenhuizen, Netherlands" width="100%">
+  <br>
+  <sub>Aurora borealis over a Dutch windmill during the January 19, 2026 solar storm. Warmenhuizen, Netherlands. Photo by <a href="https://unsplash.com/@alpozcan">Alp Ozcan</a> on <a href="https://unsplash.com/photos/-XWk_mggBRA">Unsplash</a>.</sub>
+</p>
+
 Real-time dashboard for photographing the Northern Lights with Dutch windmills in the Netherlands.
 
 Built to solve a personal problem: I kept driving an hour north from Amsterdam only to find cloudy skies. This tool combines space weather data with cloud forecasts and a map of 24,000 windmills so you can make a go/no-go decision before leaving the house.
